@@ -19,7 +19,7 @@ from mods.func_prompt_io import check_exist, check_overwrite
 LINE_START_WITH = "*"
 COMMENT_START = "<!--"
 COMMENT_END = "-->"
-SKIP_LINE_START = ["##"]
+SKIP_LINE_START = ["####"]
 
 
 
