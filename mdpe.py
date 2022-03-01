@@ -100,8 +100,8 @@ def formatting(input_file, enable_region):
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser(description="Program to convert papers in markdown format to each other", formatter_class=argparse.RawTextHelpFormatter)
 	parser.add_argument("TYPE", metavar="OPERATION", choices=["swap", "main", "comment"], help="operation type (`swap`, `main`, or `comment`)")
-	parser.add_argument("-i", dest="INPUT_FILE", metavar="INPUT.md", required=True, help="source markdown paper file")
-	parser.add_argument("-o", dest="OUTPUT_FILE", metavar="OUTPUT.md", help="output markdown paper file (Default: `-i`)")
+	parser.add_argument("INPUT_FILE", metavar="INPUT.md", help="source markdown paper file")
+	parser.add_argument("OUTPUT_FILE", metavar="OUTPUT.md", nargs="?", help="output markdown paper file (Default: `-i`)")
 	parser.add_argument("-O", dest="FLAG_OVERWRITE", action="store_true", default=False, help="overwrite forcibly")
 	args = parser.parse_args()
 
