@@ -10,6 +10,7 @@ sys.dont_write_bytecode = True
 signal.signal(signal.SIGINT, signal.SIG_DFL)
 
 import argparse
+import re
 
 from mods.func_prompt_io import check_exist, check_overwrite
 
@@ -20,6 +21,7 @@ LINE_START_WITH = "*"
 COMMENT_START = "<!--"
 COMMENT_END = "-->"
 SKIP_LINE_START = ["####"]
+RE_LINE_START_WITH = re.compile(r"^[\s\t]*\*")
 
 
 
@@ -37,11 +39,12 @@ def swap_main_and_comment(input_file):
 	output_line_vals = []
 	with open(input_file, "r") as obj_input:
 		for line_val in obj_input:
-			if line_val.startswith(LINE_START_WITH) and "<!--" in line_val:
-				line_val = line_val.replace(LINE_START_WITH, "", 1)
+			if RE_LINE_START_WITH.search(line_val) and "<!--" in line_val:
+				indent, line_val = line_val.split(LINE_START_WITH, maxsplit=1)
 				line_val = line_val.replace(COMMENT_END, "", 1)
+				line_val = line_val.strip()
 				elems = [v.strip() for v in line_val.split(COMMENT_START, 1)]
-				output_line_vals.append("* {0} <!-- {1} -->\n".format(elems[1], elems[0]))
+				output_line_vals.append("{0}* {1} <!-- {2} -->\n".format(indent, elems[1], elems[0]))
 
 			else:
 				output_line_vals.append(line_val)
@@ -68,9 +71,10 @@ def formatting(input_file, enable_region):
 			if any([line_val.startswith(v) for v in SKIP_LINE_START]):
 				continue
 
-			if line_val.startswith(LINE_START_WITH) and COMMENT_START in line_val:
-				line_val = line_val.replace(LINE_START_WITH, "", 1)
+			if RE_LINE_START_WITH.search(line_val) and COMMENT_START in line_val:
+				line_val = line_val.split(LINE_START_WITH, maxsplit=1)[1]
 				line_val = line_val.replace(COMMENT_END, "", 1)
+				line_val = line_val.strip()
 				elems = [v.strip() for v in line_val.split(COMMENT_START, 1)]
 				elem = None
 				if enable_region == "main":
