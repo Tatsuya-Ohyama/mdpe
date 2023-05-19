@@ -20,10 +20,92 @@ from mods.func_prompt_io import check_exist, check_overwrite
 LINE_START_WITH = "*"
 COMMENT_START = "<!--"
 COMMENT_END = "-->"
-SKIP_LINE_START = ["####"]
 RE_LINE_START_WITH = re.compile(r"^[\s\t]*\*")
-RE_LIST_LEVEL_SP = re.compile(r"^\s*")
-RE_LIST_LEVEL_TB = re.compile(r"^\t*")
+RE_YAML = re.compile(r"^-{3}[\s\t]*\n")
+
+
+
+# =============== class =============== #
+class FileMD:
+	def __init__(self, input_file):
+		self._yaml = []
+		self._list_lines = []
+
+		self._read_file(input_file)
+
+	@property
+	def yaml(self):
+		return self._yaml
+
+	@property
+	def lines(self):
+		return self._list_lines
+
+	@property
+	def has_yaml(self):
+		if len(self._yaml) == 0:
+			return True
+		else:
+			return False
+
+
+	def _read_file(self, input_file):
+		"""
+		Method to read file
+
+		Args:
+			input_file (str): file path
+			exist_yaml (bool): YAML state (Default: False)
+
+		Returns:
+			list: [[indent(str), main(str), comment(str)], ...]
+		"""
+		in_yaml = False
+		line_type = 0
+		with open(input_file, "r") as obj_input:
+			for line_val in obj_input:
+				if "<!--" not in line_val and "@import" in line_val:
+					# @import line
+					include_path = line_val.strip().replace("@import", "").strip()[1:-1]
+					obj_file_MD = FileMD(include_path)
+					if not self.has_yaml and obj_file_MD.has_yaml:
+						self._yaml = obj_file_MD.yaml
+					self._list_lines.extend(obj_file_MD.lines)
+
+				elif RE_LINE_START_WITH.search(line_val):
+					# regular line
+					line_type = 1
+					indent, line_val = line_val.split(LINE_START_WITH, maxsplit=1)
+					line_val = line_val.replace(COMMENT_END, "", 1)
+					line_val = line_val.strip()
+					elems = [v.strip() for v in line_val.split(COMMENT_START, 1)]
+					if len(elems) != 2:
+						elems.append("")
+					self._list_lines.append([indent, elems[0], elems[1]])
+
+				elif RE_YAML.search(line_val):
+					# start and end of YAML
+					line_type = 2
+					if in_yaml:
+						# end of YAML
+						in_yaml = False
+						self._yaml.append("---\n")
+
+					else:
+						# start of YAML
+						in_yaml = True
+						self._yaml.append("---\n")
+
+				elif in_yaml:
+					line_type = 2
+					self._yaml.append(line_val)
+
+				else:
+					if line_type == 2 and len(line_val.strip()) == 0:
+						continue
+					self._list_lines.append([line_val])
+
+		return self
 
 
 
@@ -39,18 +121,16 @@ def swap_main_and_comment(input_file):
 		list: [line_val(str), ...]
 	"""
 	output_line_vals = []
-	with open(input_file, "r") as obj_input:
-		for line_val in obj_input:
-			if RE_LINE_START_WITH.search(line_val) and "<!--" in line_val:
-				indent, line_val = line_val.split(LINE_START_WITH, maxsplit=1)
-				line_val = line_val.replace(COMMENT_END, "", 1)
-				line_val = line_val.strip()
-				elems = [v.strip() for v in line_val.split(COMMENT_START, 1)]
-				output_line_vals.append("{0}* {1} <!-- {2} -->\n".format(indent, elems[1], elems[0]))
+	obj_file_MD = FileMD(input_file)
+	for elems in obj_file_MD.lines:
+		if len(elems) == 3:
+			indent, main, comment = elems
+			output_line_vals.append("{0}* {1} <!-- {2} -->\n".format(indent, comment, main))
 
-			else:
-				output_line_vals.append(line_val)
+		else:
+			output_line_vals.append(elems[0])
 
+	output_line_vals = output_line_vals[:1] + obj_file_MD.yaml + output_line_vals[1:]
 	return output_line_vals
 
 
@@ -69,42 +149,33 @@ def formatting(input_file, enable_region):
 	output_line_vals = []
 	is_continued_list_bullet = False
 	indent_status = [0, 0]
-	with open(input_file, "r") as obj_input:
-		for line_val in obj_input:
-			if any([line_val.startswith(v) for v in SKIP_LINE_START]):
-				indent_status = [0, 0]
+
+	obj_file_MD = FileMD(input_file)
+	for elems in obj_file_MD.lines:
+		if len(elems) == 3:
+			indent, main, comment = elems
+			indent_sp = indent.count(" ")
+			indent_tb = indent.count("\t")
+
+			if indent_sp < indent_status[0] or indent_tb < indent_status[1]:
 				is_continued_list_bullet = False
-				continue
+			indent_status = [indent_sp, indent_tb]
 
-			if RE_LINE_START_WITH.search(line_val):
-				indent_sp = RE_LIST_LEVEL_SP.search(line_val).group().count(" ")
-				indent_tb = RE_LIST_LEVEL_TB.search(line_val).group().count("\t")
+			if enable_region == "comment" and len(comment) != 0:
+				main = comment
 
-				if indent_sp < indent_status[0] or indent_tb < indent_status[1]:
-					is_continued_list_bullet = False
-				indent_status = [indent_sp, indent_tb]
-
-				line_val = line_val.split(LINE_START_WITH, maxsplit=1)[1]
-				line_val = line_val.replace(COMMENT_END, "", 1)
-				line_val = line_val.strip()
-				elems = [v.strip() for v in line_val.split(COMMENT_START, 1)]
-				elem = None
-				if enable_region == "main":
-					elem = elems[0]
-				else:
-					elem = elems[1]
-
-				if is_continued_list_bullet:
-					output_line_vals[-1] += " {0}".format(elem)
-				else:
-					output_line_vals.append("\n")
-					output_line_vals.append(elem)
-				is_continued_list_bullet = True
-
+			if is_continued_list_bullet:
+				output_line_vals[-1] += " {0}".format(main)
 			else:
-				output_line_vals.append(line_val)
-				is_continued_list_bullet = False
+				output_line_vals.append("\n")
+				output_line_vals.append(main)
+			is_continued_list_bullet = True
 
+		else:
+			output_line_vals.append(elems[0])
+			is_continued_list_bullet = False
+
+	output_line_vals = output_line_vals[:1] + obj_file_MD.yaml + output_line_vals[1:]
 	return [v if v.endswith("\n") else v+"\n" for v in output_line_vals]
 
 
