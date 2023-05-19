@@ -22,6 +22,8 @@ COMMENT_START = "<!--"
 COMMENT_END = "-->"
 SKIP_LINE_START = ["####"]
 RE_LINE_START_WITH = re.compile(r"^[\s\t]*\*")
+RE_LIST_LEVEL_SP = re.compile(r"^\s*")
+RE_LIST_LEVEL_TB = re.compile(r"^\t*")
 
 
 
@@ -66,12 +68,22 @@ def formatting(input_file, enable_region):
 	"""
 	output_line_vals = []
 	is_continued_list_bullet = False
+	indent_status = [0, 0]
 	with open(input_file, "r") as obj_input:
 		for line_val in obj_input:
 			if any([line_val.startswith(v) for v in SKIP_LINE_START]):
+				indent_status = [0, 0]
+				is_continued_list_bullet = False
 				continue
 
-			if RE_LINE_START_WITH.search(line_val) and COMMENT_START in line_val:
+			if RE_LINE_START_WITH.search(line_val):
+				indent_sp = RE_LIST_LEVEL_SP.search(line_val).group().count(" ")
+				indent_tb = RE_LIST_LEVEL_TB.search(line_val).group().count("\t")
+
+				if indent_sp < indent_status[0] or indent_tb < indent_status[1]:
+					is_continued_list_bullet = False
+				indent_status = [indent_sp, indent_tb]
+
 				line_val = line_val.split(LINE_START_WITH, maxsplit=1)[1]
 				line_val = line_val.replace(COMMENT_END, "", 1)
 				line_val = line_val.strip()
@@ -85,6 +97,7 @@ def formatting(input_file, enable_region):
 				if is_continued_list_bullet:
 					output_line_vals[-1] += " {0}".format(elem)
 				else:
+					output_line_vals.append("\n")
 					output_line_vals.append(elem)
 				is_continued_list_bullet = True
 
@@ -92,7 +105,7 @@ def formatting(input_file, enable_region):
 				output_line_vals.append(line_val)
 				is_continued_list_bullet = False
 
-	return [v if v.endswith("\n") else v + "\n" for v in output_line_vals]
+	return [v if v.endswith("\n") else v+"\n" for v in output_line_vals]
 
 
 

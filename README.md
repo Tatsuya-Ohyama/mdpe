@@ -73,6 +73,9 @@ Copyright (c) 2022 Tatsuya Ohyama
 
 
 ## ChangeLog
+### Ver. 1.4 (2023-01-06)
+* コメントを含まない行を変換できないバグを修正した。
+
 ### Ver. 1.3 (2022-03-01)
 * プログラム名を `papereditor.py` から `mdpe.py` に変更し、リポジトリに公開した。
 
