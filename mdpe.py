@@ -89,12 +89,12 @@ class FileMD:
 					if in_yaml:
 						# end of YAML
 						in_yaml = False
-						self._yaml.append("---\n")
+						self._yaml.append("---\n\n")
 
 					else:
 						# start of YAML
 						in_yaml = True
-						self._yaml.append("---\n")
+						self._yaml.append("\n---\n")
 
 				elif in_yaml:
 					line_type = 2
