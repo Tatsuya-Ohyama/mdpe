@@ -22,6 +22,7 @@ COMMENT_START = "<!--"
 COMMENT_END = "-->"
 RE_LINE_START_WITH = re.compile(r"^[\s\t]*\*")
 RE_YAML = re.compile(r"^-{3}[\s\t]*\n")
+RE_PERIOD = re.compile(r"。|(\.[\s$])")
 
 
 
@@ -179,13 +180,45 @@ def formatting(input_file, enable_region):
 	return [v if v.endswith("\n") else v+"\n" for v in output_line_vals]
 
 
+def import_txt(input_file):
+	"""
+	Function to import text
+
+	Args:
+		input_file (str): input file path
+
+	Returns:
+		list: [line_val(str), ...]
+	"""
+	pos = [0, 0]
+	with open(input_file, "r") as obj_input:
+		for line_val in obj_input:
+			indent = None
+			for obj_match in RE_PERIOD.finditer(line_val):
+				_, pos[1] = obj_match.span()
+				text = line_val[pos[0]:pos[1]].strip()
+				pos[0] = pos[1]
+				if len(text) == 0:
+					continue
+
+				if indent is None:
+					indent = ""
+				elif indent == "":
+					indent = "\t"
+
+				output_line_vals.append("{0}* {1} <!-- {1} -->\n".format(indent, text))
+
+	return [v if v.endswith("\n") else v+"\n" for v in output_line_vals]
+
+
 
 # =============== main =============== #
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser(description="Program to convert papers in markdown format to each other", formatter_class=argparse.RawTextHelpFormatter)
-	parser.add_argument("TYPE", metavar="OPERATION", choices=["swap", "main", "comment"], help="operation type (`swap`, `main`, or `comment`)")
+	parser.add_argument("TYPE", metavar="OPERATION", choices=["swap", "main", "comment", "import"], help="operation type (`swap`, `main`, or `comment`)")
 	parser.add_argument("INPUT_FILE", metavar="INPUT.md", help="source markdown paper file")
 	parser.add_argument("OUTPUT_FILE", metavar="OUTPUT.md", nargs="?", help="output markdown paper file (Default: `-i`)")
+	parser.add_argument("-a", "--append", dest="FLAG_APPEND", action="store_true", default=False, help="append markdown for `import` mode")
 	parser.add_argument("-O", dest="FLAG_OVERWRITE", action="store_true", default=False, help="overwrite forcibly")
 	args = parser.parse_args()
 
@@ -198,6 +231,8 @@ if __name__ == '__main__':
 	output_line_vals = []
 	if args.TYPE == "swap":
 		output_line_vals = swap_main_and_comment(args.INPUT_FILE)
+	elif args.TYPE == "import":
+		output_line_vals = import_txt(args.INPUT_FILE)
 	else:
 		output_line_vals = formatting(args.INPUT_FILE, args.TYPE)
 
@@ -205,6 +240,10 @@ if __name__ == '__main__':
 	if args.FLAG_OVERWRITE == False:
 		check_overwrite(output_file)
 
-	with open(output_file, "w") as obj_output:
+	write_option = "w"
+	if args.TYPE == "import" and args.FLAG_APPEND:
+		write_option = "a"
+
+	with open(output_file, write_option) as obj_output:
 		for line_val in output_line_vals:
 			obj_output.write(line_val)
