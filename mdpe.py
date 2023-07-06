@@ -34,6 +34,7 @@ IGNORE_PERIOD = {
 	" cf.": " cf\0",
 	" ca.": " ca\0"
 }
+RE_IGNORE_FLOAT = re.compile(r"(-?\d+)\.(\d+)")
 
 
 
@@ -214,6 +215,7 @@ def import_txt(input_file):
 				# ignore special period
 				if ignore_key in line_val:
 					line_val = line_val.replace(ignore_key, IGNORE_PERIOD[ignore_key])
+			line_val = RE_IGNORE_FLOAT.sub(r"\1\0\2", line_val)
 
 			for obj_match in RE_PERIOD.finditer(line_val):
 				# line contain period
