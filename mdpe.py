@@ -22,7 +22,18 @@ COMMENT_START = "<!--"
 COMMENT_END = "-->"
 RE_LINE_START_WITH = re.compile(r"^[\s\t]*\*")
 RE_YAML = re.compile(r"^-{3}[\s\t]*\n")
-RE_PERIOD = re.compile(r"。|(\.[\s$])")
+RE_PERIOD = re.compile(r"(。)|(\.)|(\n)")
+RE_START_DIGIT = re.compile(r"^\d+\.$")
+IGNORE_PERIOD = {
+	"Fig.": "Fig\0",
+	"Figs.": "Figs\0",
+	" i.e.": " i\0e\0",
+	" e.g.": " e\0g\0",
+	" et al.": " et al\0",
+	" etc.": " etc\0",
+	" cf.": " cf\0",
+	" ca.": " ca\0"
+}
 
 
 
@@ -190,23 +201,42 @@ def import_txt(input_file):
 	Returns:
 		list: [line_val(str), ...]
 	"""
-	pos = [0, 0]
 	with open(input_file, "r") as obj_input:
 		for line_val in obj_input:
+			pos = [0, 0]
 			indent = None
+			if len(line_val.strip()) == 0:
+				# empty line
+				output_line_vals.append(line_val)
+				continue
+
+			for ignore_key in IGNORE_PERIOD.keys():
+				# ignore special period
+				if ignore_key in line_val:
+					line_val = line_val.replace(ignore_key, IGNORE_PERIOD[ignore_key])
+
 			for obj_match in RE_PERIOD.finditer(line_val):
+				# line contain period
 				_, pos[1] = obj_match.span()
 				text = line_val[pos[0]:pos[1]].strip()
-				pos[0] = pos[1]
-				if len(text) == 0:
+
+				if pos[0] == 0 and RE_START_DIGIT.search(text):
+					# skip start with digit and period (ordered list)
 					continue
+
+				if len(text.strip()) == 0:
+					# empty text (space only)
+					continue
+
+				pos[0] = pos[1]
 
 				if indent is None:
 					indent = ""
 				elif indent == "":
 					indent = "\t"
 
-				output_line_vals.append("{0}* {1} <!-- {1} -->\n".format(indent, text))
+				text = text.replace("\0", ".")
+				output_line_vals.append("{0}* {1} <!--  -->\n".format(indent, text))
 
 	return [v if v.endswith("\n") else v+"\n" for v in output_line_vals]
 
