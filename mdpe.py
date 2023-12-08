@@ -138,7 +138,10 @@ def swap_main_and_comment(input_file):
 	for elems in obj_file_MD.lines:
 		if len(elems) == 3:
 			indent, main, comment = elems
-			output_line_vals.append("{0}* {1} <!-- {2} -->\n".format(indent, comment, main))
+			if main.startswith("#"):
+				output_line_vals.append("{0}{1} <!-- {2} -->\n".format(indent, comment, main))
+			else:
+				output_line_vals.append("{0}* {1} <!-- {2} -->\n".format(indent, comment, main))
 
 		else:
 			output_line_vals.append(elems[0])
@@ -238,7 +241,10 @@ def import_txt(input_file):
 					indent = "\t"
 
 				text = text.replace("\0", ".")
-				output_line_vals.append("{0}* {1} <!--  -->\n".format(indent, text))
+				if text.startswith("#"):
+					output_line_vals.append("{0}{1} <!--  -->\n".format(indent, text))
+				else:
+					output_line_vals.append("{0}* {1} <!--  -->\n".format(indent, text))
 
 	return [v if v.endswith("\n") else v+"\n" for v in output_line_vals]
 
