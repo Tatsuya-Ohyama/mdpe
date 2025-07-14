@@ -27,14 +27,40 @@ RE_START_DIGIT = re.compile(r"^\d+\.$")
 IGNORE_PERIOD = {
 	"Fig.": "Fig\0",
 	"Figs.": "Figs\0",
+	"Eq.": "Eq\0",
+	"Ref.": "Ref\0",
 	" i.e.": " i\0e\0",
 	" e.g.": " e\0g\0",
 	" et al.": " et al\0",
 	" etc.": " etc\0",
 	" cf.": " cf\0",
-	" ca.": " ca\0"
+	" ca.": " ca\0",
+	"Dr.": "Dr\0",
+	"Mr.": "Mr\0",
+	"Mrs.": "Mrs\0",
+	"Ms.": "Ms\0",
+	"Mr.": "Mr\0" ,
+	"Mrs.": "Mrs\0",
+	"Prof.": "Prof\0",
+	"Ph.D.": "Ph.D\0",
+	"a.m.": "a\0m\0" ,
+	"p.m.": "p\0m\0",
+	"vs.": "vs\0",
+	"No.": "No\0",
+	"Vol.": "Vol\0",
+	"pp.": "pp\0",
+	"ed.": "ed\0",
+	"Inc.": "Inc\0",
+	"J.": "J\0",
+	"Rev.": "Rev\0",
+	"Dept.": "Dept\0",
+	"Univ.": "Univ\0",
+	"St.": "St\0",
+	"Ch.": "Ch\0",
+	"cf.": "cf\0",
 }
 RE_IGNORE_FLOAT = re.compile(r"(-?\d+)\.(\d+)")
+RE_IGNROE_URL = re.compile(r"(https?://[^\s\(\)]+)")
 
 
 
@@ -138,7 +164,10 @@ def swap_main_and_comment(input_file):
 	for elems in obj_file_MD.lines:
 		if len(elems) == 3:
 			indent, main, comment = elems
-			output_line_vals.append("{0}* {1} <!-- {2} -->\n".format(indent, comment, main))
+			if main.startswith("#"):
+				output_line_vals.append("{0}{1} <!-- {2} -->\n".format(indent, comment, main))
+			else:
+				output_line_vals.append("{0}* {1} <!-- {2} -->\n".format(indent, comment, main))
 
 		else:
 			output_line_vals.append(elems[0])
@@ -215,6 +244,13 @@ def import_txt(input_file):
 				# ignore special period
 				if ignore_key in line_val:
 					line_val = line_val.replace(ignore_key, IGNORE_PERIOD[ignore_key])
+
+			for obj_match in RE_IGNROE_URL.finditer(line_val):
+				s, e = obj_match.span()
+				url = obj_match.group(0)
+				url = url.replace(".", "\0")
+				line_val = line_val[:s] + url + line_val[e:]
+
 			line_val = RE_IGNORE_FLOAT.sub(r"\1\0\2", line_val)
 
 			for obj_match in RE_PERIOD.finditer(line_val):
@@ -238,7 +274,10 @@ def import_txt(input_file):
 					indent = "\t"
 
 				text = text.replace("\0", ".")
-				output_line_vals.append("{0}* {1} <!--  -->\n".format(indent, text))
+				if text.startswith("#"):
+					output_line_vals.append("{0}{1} <!--  -->\n".format(indent, text))
+				else:
+					output_line_vals.append("{0}* {1} <!--  -->\n".format(indent, text))
 
 	return [v if v.endswith("\n") else v+"\n" for v in output_line_vals]
 
