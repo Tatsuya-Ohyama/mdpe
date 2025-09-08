@@ -29,12 +29,12 @@ IGNORE_PERIOD = {
 	"Figs.": "Figs\0",
 	"Eq.": "Eq\0",
 	"Ref.": "Ref\0",
-	" i.e.": " i\0e\0",
-	" e.g.": " e\0g\0",
-	" et al.": " et al\0",
-	" etc.": " etc\0",
-	" cf.": " cf\0",
-	" ca.": " ca\0",
+	"i.e.": "i\0e\0",
+	"e.g.": "e\0g\0",
+	"et al.": "et al\0",
+	"etc.": "etc\0",
+	"cf.": "cf\0",
+	"ca.": "ca\0",
 	"Dr.": "Dr\0",
 	"Mr.": "Mr\0",
 	"Mrs.": "Mrs\0",
@@ -231,6 +231,7 @@ def import_txt(input_file):
 	Returns:
 		list: [line_val(str), ...]
 	"""
+	output_line_vals = []
 	with open(input_file, "r") as obj_input:
 		for line_val in obj_input:
 			pos = [0, 0]
