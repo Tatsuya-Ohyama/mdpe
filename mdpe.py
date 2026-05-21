@@ -23,6 +23,7 @@ COMMENT_END = "-->"
 RE_LINE_START_WITH = re.compile(r"^[\s\t]*\*")
 RE_YAML = re.compile(r"^-{3}[\s\t]*\n")
 RE_PERIOD = re.compile(r"(。)|(\.)|(\n)")
+RE_PERIOD_REF = re.compile(r"(([。\.\n]\s*[\(\[]?\d+([,-−]\d+)*[\)\]]?)[\s\n])|(。)|(\.)|(\n)")
 RE_START_DIGIT = re.compile(r"^\d+\.$")
 IGNORE_PERIOD = {
 	"Fig.": "Fig\0",
@@ -165,9 +166,9 @@ def swap_main_and_comment(input_file):
 		if len(elems) == 3:
 			indent, main, comment = elems
 			if main.startswith("#"):
-				output_line_vals.append("{0}{1} <!-- {2} -->\n".format(indent, comment, main))
+				output_line_vals.append(f"{indent}{comment} <!-- {main} -->\n")
 			else:
-				output_line_vals.append("{0}* {1} <!-- {2} -->\n".format(indent, comment, main))
+				output_line_vals.append(f"{indent}* {comment} <!-- {main} -->\n")
 
 		else:
 			output_line_vals.append(elems[0])
@@ -207,7 +208,7 @@ def formatting(input_file, enable_region):
 				main = comment
 
 			if is_continued_list_bullet:
-				output_line_vals[-1] += " {0}".format(main)
+				output_line_vals[-1] += f" {main}"
 			else:
 				output_line_vals.append("\n")
 				output_line_vals.append(main)
@@ -221,18 +222,27 @@ def formatting(input_file, enable_region):
 	return [v if v.endswith("\n") else v+"\n" for v in output_line_vals]
 
 
-def import_txt(input_file):
+def import_txt(input_file, has_ref_at_end=False):
 	"""
 	Function to import text
 
 	Args:
 		input_file (str): input file path
+		has_ref_at_end (bool): includes ref at the end of the line
 
 	Returns:
 		list: [line_val(str), ...]
 	"""
 	output_line_vals = []
+	re_end = RE_PERIOD
+	if has_ref_at_end:
+		re_end = RE_PERIOD_REF
+
 	with open(input_file, "r") as obj_input:
+		is_started_main = False
+		is_in_meta = False
+		is_in_eqn = False
+		indent_prev = None
 		for line_val in obj_input:
 			pos = [0, 0]
 			indent = None
@@ -254,7 +264,7 @@ def import_txt(input_file):
 
 			line_val = RE_IGNORE_FLOAT.sub(r"\1\0\2", line_val)
 
-			for obj_match in RE_PERIOD.finditer(line_val):
+			for obj_match in re_end.finditer(line_val):
 				# line contain period
 				_, pos[1] = obj_match.span()
 				text = line_val[pos[0]:pos[1]].strip()
@@ -272,13 +282,43 @@ def import_txt(input_file):
 				if indent is None:
 					indent = ""
 				elif indent == "":
-					indent = "\t"
+					indent = indent_prev = "\t"
 
 				text = text.replace("\0", ".")
-				if text.startswith("#"):
-					output_line_vals.append("{0}{1} <!--  -->\n".format(indent, text))
+				if text.startswith("%") and not is_started_main:
+					# %-meta
+					output_line_vals.append(text)
+
+				elif text == "---" and not is_started_main:
+					# meta block (separator)
+					if not is_in_meta:
+						is_in_meta = True
+					else:
+						is_in_meta = False
+					output_line_vals.append(f"{text}\n")
+
+				elif is_in_meta:
+					# meta block (inside)
+					output_line_vals.append(f"{text}\n")
+
+				elif text.startswith("#"):
+					# header
+					output_line_vals.append(f"{indent}{text} <!--  -->\n")
+
+				elif text.startswith("$$"):
+					# equation block
+					if not is_in_eqn:
+						is_in_eqn = True
+					else:
+						is_in_eqn = False
+					output_line_vals.append(f"{indent_prev}{text}\n")
+
+				elif is_in_eqn:
+					output_line_vals.append(f"{indent_prev}{text}\n")
+
 				else:
-					output_line_vals.append("{0}* {1} <!--  -->\n".format(indent, text))
+					output_line_vals.append(f"{indent}* {text} <!--  -->\n")
+					is_started_main = True
 
 	return [v if v.endswith("\n") else v+"\n" for v in output_line_vals]
 
@@ -287,10 +327,11 @@ def import_txt(input_file):
 # =============== main =============== #
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser(description="Program to convert papers in markdown format to each other", formatter_class=argparse.RawTextHelpFormatter)
-	parser.add_argument("TYPE", metavar="OPERATION", choices=["swap", "main", "comment", "import"], help="operation type (`swap`, `main`, or `comment`)")
+	parser.add_argument("TYPE", metavar="OPERATION", choices=["swap", "main", "comment", "import"], help="operation type (`swap`, `main`, `comment`, `import`)")
 	parser.add_argument("INPUT_FILE", metavar="INPUT.md", help="source markdown paper file")
 	parser.add_argument("OUTPUT_FILE", metavar="OUTPUT.md", nargs="?", help="output markdown paper file (Default: `-i`)")
 	parser.add_argument("-a", "--append", dest="FLAG_APPEND", action="store_true", default=False, help="append markdown for `import` mode")
+	parser.add_argument("--ref", dest="FLAG_REF", action="store_true", default=False, help="consider the reference number after period for `import` mode")
 	parser.add_argument("-O", dest="FLAG_OVERWRITE", action="store_true", default=False, help="overwrite forcibly")
 	args = parser.parse_args()
 
@@ -304,7 +345,7 @@ if __name__ == '__main__':
 	if args.TYPE == "swap":
 		output_line_vals = swap_main_and_comment(args.INPUT_FILE)
 	elif args.TYPE == "import":
-		output_line_vals = import_txt(args.INPUT_FILE)
+		output_line_vals = import_txt(args.INPUT_FILE, args.FLAG_REF)
 	else:
 		output_line_vals = formatting(args.INPUT_FILE, args.TYPE)
 
