@@ -241,6 +241,8 @@ def import_txt(input_file, has_ref_at_end=False):
 	with open(input_file, "r") as obj_input:
 		is_started_main = False
 		is_in_meta = False
+		is_in_eqn = False
+		indent_prev = None
 		for line_val in obj_input:
 			pos = [0, 0]
 			indent = None
@@ -280,24 +282,39 @@ def import_txt(input_file, has_ref_at_end=False):
 				if indent is None:
 					indent = ""
 				elif indent == "":
-					indent = "\t"
+					indent = indent_prev = "\t"
 
 				text = text.replace("\0", ".")
 				if text.startswith("%") and not is_started_main:
+					# %-meta
 					output_line_vals.append(text)
 
 				elif text == "---" and not is_started_main:
+					# meta block (separator)
 					if not is_in_meta:
 						is_in_meta = True
 					else:
 						is_in_meta = False
-					output_line_vals.append(text)
+					output_line_vals.append(f"{text}\n")
 
 				elif is_in_meta:
-					output_line_vals.append(text)
+					# meta block (inside)
+					output_line_vals.append(f"{text}\n")
 
 				elif text.startswith("#"):
+					# header
 					output_line_vals.append(f"{indent}{text} <!--  -->\n")
+
+				elif text.startswith("$$"):
+					# equation block
+					if not is_in_eqn:
+						is_in_eqn = True
+					else:
+						is_in_eqn = False
+					output_line_vals.append(f"{indent_prev}{text}\n")
+
+				elif is_in_eqn:
+					output_line_vals.append(f"{indent_prev}{text}\n")
 
 				else:
 					output_line_vals.append(f"{indent}* {text} <!--  -->\n")
